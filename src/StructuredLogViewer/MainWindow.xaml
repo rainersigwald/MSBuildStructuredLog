@@ -49,4 +49,7 @@
       <ContentPresenter x:Name="mainContent" Margin="7"/>
     </Grid>
   </DockPanel>
+  <Window.TaskbarItemInfo>
+    <TaskbarItemInfo x:Name="taskbarInfo" />
+  </Window.TaskbarItemInfo>
 </Window>

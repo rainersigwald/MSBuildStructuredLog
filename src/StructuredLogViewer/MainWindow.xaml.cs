@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Build.Logging.StructuredLogger;
 using Microsoft.Win32;
@@ -467,6 +468,8 @@ namespace StructuredLogViewer
             UpdateRecentItemsMenu();
             Title = filePath + " - " + DefaultTitle;
 
+            taskbarInfo.ProgressState = TaskbarItemProgressState.Normal;
+
             var progress = new BuildProgress();
             progress.Progress.Updated += update =>
             {
@@ -480,6 +483,8 @@ namespace StructuredLogViewer
                     }
 
                     progress.BufferText = bufferText;
+
+                    taskbarInfo.ProgressValue = update.Ratio;
                 }, DispatcherPriority.Background);
             };
             progress.ProgressText = "Opening " + filePath + "...";
@@ -509,9 +514,13 @@ namespace StructuredLogViewer
 
             if (build == null)
             {
+                taskbarInfo.ProgressState = TaskbarItemProgressState.Error;
+
                 build = GetErrorBuild(filePath, "");
                 shouldAnalyze = false;
             }
+
+            taskbarInfo.ProgressState = TaskbarItemProgressState.Indeterminate;
 
             if (shouldAnalyze)
             {
@@ -573,6 +582,8 @@ namespace StructuredLogViewer
 
                 currentBuild.UpdateBreadcrumb(text);
             }
+
+            taskbarInfo.ProgressState = TaskbarItemProgressState.None;
         }
 
         private void AddNuGetNode(Build build)

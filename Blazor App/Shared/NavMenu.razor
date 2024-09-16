@@ -140,21 +140,18 @@
         System.Diagnostics.Stopwatch timeSinceUpdate = System.Diagnostics.Stopwatch.StartNew();
 
         //reading build and creating tree from the build
-        var progress = new Progress();
-        progress.Updated += progressUpdate =>
+        mainLayout.containerSplit.build = await BinaryLog.ReadBuild(memoryStream, progressFunc: async (current, total) =>
         {
             if (timeSinceUpdate.Elapsed.TotalSeconds > 0.1)
             {
                 //waitText = current.ToString() + " / " + total.ToString();
                 //Console.WriteLine(waitText);
-                FileTree._progressValue = progressUpdate.Ratio;
+                FileTree._progressValue = 100 * current / (double)total;
                 mainLayout.containerSplit.fileTree.Render();
-                //await System.Threading.Tasks.Task.Delay(1);
-                //timeSinceUpdate.Restart();
+                await System.Threading.Tasks.Task.Delay(1);
+                timeSinceUpdate.Restart();
             }
-        };
-
-        mainLayout.containerSplit.build = BinaryLog.ReadBuild(memoryStream, progress, null); // TODO: Should be async
+        });
         FileTree.waitText = "Trust me you're computer wants this to be over more than you do...";
         BuildAnalyzer.AnalyzeBuild(mainLayout.containerSplit.build);
         FileTree.fileTree = (IEnumerable<BaseNode>)mainLayout.containerSplit.build.Children;

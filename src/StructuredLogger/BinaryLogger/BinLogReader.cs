@@ -187,6 +187,67 @@ namespace Microsoft.Build.Logging.StructuredLogger
             }
         }
 
+        public async System.Threading.Tasks.Task Replay(Stream stream, Func<long, long, System.Threading.Tasks.Task> progressFunc = null)
+        {
+            var gzipStream = new GZipStream(stream, CompressionMode.Decompress, leaveOpen: true);
+            var binaryReader = new BinaryReader(gzipStream);
+
+            int fileFormatVersion = binaryReader.ReadInt32();
+
+            // the log file is written using a newer version of file format
+            // that we don't know how to read
+            if (fileFormatVersion > BinaryLogger.FileFormatVersion)
+            {
+                var text = $"Unsupported log file format. Latest supported version is {BinaryLogger.FileFormatVersion}, the log file has version {fileFormatVersion}.";
+                throw new NotSupportedException(text);
+            }
+
+            // Use a producer-consumer queue so that IO can happen on one thread
+            // while processing can happen on another thread decoupled. The speed
+            // up is from 4.65 to 4.15 seconds.
+            //var queue = new BlockingCollection<BuildEventArgs>(boundedCapacity: 5000);
+            //var processingTask = System.Threading.Tasks.Task.Run(() =>
+            //{
+            //    foreach (var args in queue.GetConsumingEnumerable())
+            //    {
+            //        Dispatch(args);
+            //    }
+            //});
+
+            int recordsRead = 0;
+
+            var reader = new BuildEventArgsReader(binaryReader, fileFormatVersion);
+            reader.OnBlobRead += OnBlobRead;
+            while (true)
+            {
+                BuildEventArgs instance = null;
+
+                try
+                {
+                    instance = reader.Read();
+                }
+                catch (Exception ex)
+                {
+                    OnException?.Invoke(ex);
+                }
+
+                recordsRead++;
+                if (instance == null)
+                {
+                    //queue.CompleteAdding();
+                    break;
+                }
+
+                Dispatch(instance);
+                if (progressFunc != null)
+                {
+                    await progressFunc(stream.Position, stream.Length);
+                }
+            }
+
+            //processingTask.Wait();
+        }
+
         private BuildEventArgsReader OpenReader(BinaryReader binaryReader)
         {
             int fileFormatVersion = binaryReader.ReadInt32();

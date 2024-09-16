@@ -117,8 +117,16 @@
             this.StateHasChanged();
             return;
         }
+
+        try
+        {
         IEnumerable<StructuredLogViewer.SearchResult> results = searcher.FindNodes(value, new System.Threading.CancellationToken());
         searchResults = BuildResultTree(results) as IEnumerable<BaseNode>;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
         this.StateHasChanged();
     }
 
@@ -158,8 +166,7 @@
                 var project = result.Node.GetNearestParent<Project>();
                 if (project != null)
                 {
-                    //var projectProxy = root.GetOrCreateNodeWithName<ProxyNode>(project.Name);
-                    var projectProxy = root.FindChild<ProxyNode>(project.Name);
+                    var projectProxy = root.GetOrCreateNodeWithText<ProxyNode>(project.Name);
                     projectProxy.Original = project;
                     if (projectProxy.Highlights.Count == 0)
                     {
@@ -173,8 +180,7 @@
                 var target = result.Node.GetNearestParent<Target>();
                 if (target != null)
                 {
-                    //var targetProxy = parent.GetOrCreateNodeWithName<ProxyNode>(target.TypeName + " " + target.Name);
-                    var targetProxy = root.FindChild<ProxyNode>(target.TypeName + " " + target.Name);
+                    var targetProxy = parent.GetOrCreateNodeWithText<ProxyNode>(target.TypeName + " " + target.Name);
                     targetProxy.Original = target;
                     if (targetProxy.Highlights.Count == 0)
                     {
@@ -189,8 +195,7 @@
                 var task = result.Node.GetNearestParent<Microsoft.Build.Logging.StructuredLogger.Task>(t => !string.Equals(t.Name, "MSBuild", StringComparison.OrdinalIgnoreCase));
                 if (task != null)
                 {
-                    //var taskProxy = parent.GetOrCreateNodeWithName<ProxyNode>(task.TypeName + " " + task.Name);
-                    var taskProxy = root.FindChild<ProxyNode>(task.TypeName + " " + task.Name);
+                    var taskProxy = root.GetOrCreateNodeWithText<ProxyNode>(task.TypeName + " " + task.Name);
                     taskProxy.Original = task;
                     if (taskProxy.Highlights.Count == 0)
                     {

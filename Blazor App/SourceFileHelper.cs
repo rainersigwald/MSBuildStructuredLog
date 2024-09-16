@@ -33,7 +33,7 @@ namespace StructuredLogViewerWASM
                 else
                 {
                     sourceFileText = fileResolver.GetSourceFileText(path).Text;
-                    sourceFileName = ad.Name;
+                    sourceFileName = ad.Text;
                 }
                 sourceFileLineNumber = ad.LineNumber;
 
@@ -80,7 +80,7 @@ namespace StructuredLogViewerWASM
             else if (bn is TextNode && ((TextNode)bn).IsTextShortened)
             {
                 sourceFileText = ((TextNode)bn).Text;
-                sourceFileName = ((TextNode)bn).Name;
+                sourceFileName = "<sourceFileName = ((TextNode)bn).Name>";
             }
 
             if (sourceFileText == null)

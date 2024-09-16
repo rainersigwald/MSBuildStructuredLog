@@ -1,4 +1,4 @@
-﻿@using StructuredLogViewerWASM.Pages
+@using StructuredLogViewerWASM.Pages
 @using System.IO
 @using Microsoft.Build.Logging.StructuredLogger
 @inject Blazor.FileReader.IFileReaderService fileReaderService
@@ -140,30 +140,33 @@
         System.Diagnostics.Stopwatch timeSinceUpdate = System.Diagnostics.Stopwatch.StartNew();
 
         //reading build and creating tree from the build
-        mainLayout.containerSplit.build = await BinaryLog.ReadBuild(memoryStream, progressFunc: async (current, total) =>
+        var progress = new Progress();
+        progress.Updated += progressUpdate =>
         {
             if (timeSinceUpdate.Elapsed.TotalSeconds > 0.1)
             {
                 //waitText = current.ToString() + " / " + total.ToString();
                 //Console.WriteLine(waitText);
-                FileTree._progressValue = 100 * current / (double)total;
+                FileTree._progressValue = progressUpdate.Ratio;
                 mainLayout.containerSplit.fileTree.Render();
-                await System.Threading.Tasks.Task.Delay(1);
-                timeSinceUpdate.Restart();
+                //await System.Threading.Tasks.Task.Delay(1);
+                //timeSinceUpdate.Restart();
             }
-        });
+        };
+
+        mainLayout.containerSplit.build = BinaryLog.ReadBuild(memoryStream, progress, null); // TODO: Should be async
         FileTree.waitText = "Trust me you're computer wants this to be over more than you do...";
         BuildAnalyzer.AnalyzeBuild(mainLayout.containerSplit.build);
         FileTree.fileTree = (IEnumerable<BaseNode>)mainLayout.containerSplit.build.Children;
 
         //creating a search object to be used in the Search tab
-        SearchViewer.searcher = new StructuredLogViewer.Search(mainLayout.containerSplit.build, StructuredLogViewer.Search.DefaultMaxResults);
+        SearchViewer.searcher = new StructuredLogViewer.Search(new[] { mainLayout.containerSplit.build }, mainLayout.containerSplit.build.StringTable.Instances, StructuredLogViewer.Search.DefaultMaxResults, false);
         mainLayout.containerSplit.fileTree.Render();
         FileTree.waitText = "Not a joke...We're actually still reading...";
         mainLayout.containerSplit.fileTree.Render();
 
         //creating file resolvers to read/look through archive/source files
-        mainLayout.containerSplit.sourceFileResolver = new StructuredLogViewer.SourceFileResolver(mainLayout.containerSplit.build.SourceFilesArchive);
+        mainLayout.containerSplit.sourceFileResolver = new StructuredLogViewer.SourceFileResolver(mainLayout.containerSplit.build.SourceFiles);
         mainLayout.containerSplit.archiveFileResolver = mainLayout.containerSplit.sourceFileResolver.ArchiveFile;
 
         //populates the Files tab with the projectFiles tree

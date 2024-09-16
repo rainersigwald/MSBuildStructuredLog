@@ -15,6 +15,7 @@
     <PackageReference Include="BlazorSplit" Version="0.3.0" />
     <PackageReference Include="DataJuggler.Blazor.FileUpload" Version="8.0.2" />
     <PackageReference Include="Radzen.Blazor" Version="2.11.8" />
+    <PackageReference Include="Tewr.Blazor.FileReader" Version="1.6.0.20166" />
   </ItemGroup>
 
   <ItemGroup>

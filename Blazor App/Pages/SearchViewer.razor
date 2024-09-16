@@ -1,4 +1,4 @@
-﻿@*Creates the layout of the search panel on the far left panel of the app
+@*Creates the layout of the search panel on the far left panel of the app
     Allows the user to search through the File Tree*@
 
 @page "/SearchViewer"
@@ -158,7 +158,8 @@
                 var project = result.Node.GetNearestParent<Project>();
                 if (project != null)
                 {
-                    var projectProxy = root.GetOrCreateNodeWithName<ProxyNode>(project.Name);
+                    //var projectProxy = root.GetOrCreateNodeWithName<ProxyNode>(project.Name);
+                    var projectProxy = root.FindChild<ProxyNode>(project.Name);
                     projectProxy.Original = project;
                     if (projectProxy.Highlights.Count == 0)
                     {
@@ -172,11 +173,13 @@
                 var target = result.Node.GetNearestParent<Target>();
                 if (target != null)
                 {
-                    var targetProxy = parent.GetOrCreateNodeWithName<ProxyNode>(target.TypeName + " " + target.Name);
+                    //var targetProxy = parent.GetOrCreateNodeWithName<ProxyNode>(target.TypeName + " " + target.Name);
+                    var targetProxy = root.FindChild<ProxyNode>(target.TypeName + " " + target.Name);
                     targetProxy.Original = target;
                     if (targetProxy.Highlights.Count == 0)
                     {
-                        targetProxy.Highlights.Add(targetProxy.Name);
+                        //targetProxy.Highlights.Add(targetProxy.Name);
+                        targetProxy.Highlights.Add(targetProxy.Original.ToString());
                     }
 
                     parent = targetProxy;
@@ -186,11 +189,12 @@
                 var task = result.Node.GetNearestParent<Microsoft.Build.Logging.StructuredLogger.Task>(t => !string.Equals(t.Name, "MSBuild", StringComparison.OrdinalIgnoreCase));
                 if (task != null)
                 {
-                    var taskProxy = parent.GetOrCreateNodeWithName<ProxyNode>(task.TypeName + " " + task.Name);
+                    //var taskProxy = parent.GetOrCreateNodeWithName<ProxyNode>(task.TypeName + " " + task.Name);
+                    var taskProxy = root.FindChild<ProxyNode>(task.TypeName + " " + task.Name);
                     taskProxy.Original = task;
                     if (taskProxy.Highlights.Count == 0)
                     {
-                        taskProxy.Highlights.Add(taskProxy.Name);
+                        taskProxy.Highlights.Add(taskProxy.Original.ToString());
                     }
 
                     parent = taskProxy;

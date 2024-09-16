@@ -1,0 +1,153 @@
+﻿@*Main page that determines three vs two panel layout*@
+
+@page "/home"
+@page "/"
+@using Microsoft.Build.Logging.StructuredLogger
+@using StructuredLogViewer
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager 
+
+    <CascadingValue Value=this>
+
+        <body style="height:100%" id="mainLayout">
+            <div>
+                <div @ref="tabPanel" style="overflow: scroll; white-space: nowrap;" class="split" id="tabPanel">
+                    <Tabs />
+                </div>
+                <div @ref="fileTreePanel" style="overflow: scroll; white-space: nowrap;" class="split" id="fileTreePanel">
+                    @DrawFileTreePanel()
+                </div>
+                @if (showSourceFilePanel)
+                {
+                    <div @ref="sourceFilePanel" style="overflow: scroll; white-space: nowrap; height:100vh" id="sourceFilePanel">
+                        @DrawSourceFilePanel()
+                    </div>
+                }
+            </div>
+        </body>   
+    </CascadingValue>
+
+
+
+        @code {
+            [CascadingParameter]
+            public MainLayout mainLayout { get; set; }
+            public bool showSourceFilePanel;
+            protected ElementReference tabPanel;
+            protected ElementReference fileTreePanel;
+            protected ElementReference sourceFilePanel;
+            private SourceFile sourceFile;
+            public FileTree fileTree;
+            public SourceFileResolver sourceFileResolver;
+            public ArchiveFileResolver archiveFileResolver;
+            public Build build;
+            public IEnumerable<BaseNode> projectFiles;
+            public string sourceFileText = "No file to display.";
+            public int sourceFileLineNumber = -1;
+            public string sourceFileName;
+            public string sourceFileExtension;
+            public bool searching;
+            public bool darkMode = false;
+
+            /// <summary>
+            /// Switches the application to dark mode
+            /// </summary>
+            public async void DarkMode()
+            {
+                darkMode = !darkMode;
+                if (showSourceFilePanel)
+                {
+                    sourceFile.changeTheme();
+                }
+                if (darkMode)
+                {
+                    await JSRuntime.InvokeVoidAsync("blazorHelpers.DarkMode");
+                } else
+                {
+                    await JSRuntime.InvokeVoidAsync("blazorHelpers.LightMode");
+                }
+            }
+            /// <summary>
+            /// Allows sub pages to re-render the entire app
+            /// </summary>
+            public void Render()
+            {
+                this.StateHasChanged();
+            }
+
+            /// <summary>
+            /// Draws the FileTreePanel
+            /// </summary>
+            /// <returns> The RenderFragment to be used in the html code </returns>
+            public RenderFragment DrawFileTreePanel()
+            {
+                return new RenderFragment(builder =>
+                {
+                    builder.OpenComponent<FileTree>(0);
+                    builder.AddComponentReferenceCapture(1, inst => { fileTree = (FileTree)inst; });
+                    builder.CloseComponent();
+                });
+            }
+
+            /// <summary>
+            /// Allows separate pages to re-render the SourcefilePanel
+            /// </summary>
+            public async void SourceFileRender()
+            {
+                if (sourceFile != null)
+                {
+                    sourceFile.Render();
+                    await sourceFile.changeHighlight(sourceFile._editor);
+                }
+            }
+
+            /// <summary>
+            /// Draws the SourceFilePanel
+            /// </summary>
+            /// <returns> The RenderFragment to be used in the html code </returns>
+            public RenderFragment DrawSourceFilePanel()
+            {
+                return new RenderFragment(builder =>
+                {
+                    builder.OpenComponent<SourceFile>(0);
+                    builder.AddComponentReferenceCapture(1, inst => { sourceFile = (SourceFile)inst; });
+                    builder.CloseComponent();
+                });
+            }
+
+            /// <summary>
+            /// Calls the Split/Destroy methods once the html elements have rendered
+            /// Determines if the split is between 2 or 3 panels
+            /// </summary>
+            /// <param name="firstRender"> true if it is the first time the page has ever rendered false otherwise </param>
+            /// <returns> Task to update the html </returns>
+            protected override async System.Threading.Tasks.Task OnAfterRenderAsync(bool firstRender)
+            {
+                if (firstRender)
+                {
+                    mainLayout.containerSplit = this;
+                }
+
+                if (!showSourceFilePanel && !searching)
+                {
+                    if (!firstRender)
+                    {
+                        await JSRuntime.InvokeVoidAsync("blazorHelpers.Destroy");
+                    }
+                    ElementReference[] elementArray = new ElementReference[2];
+                    elementArray[0] = tabPanel;
+                    elementArray[1] = fileTreePanel;
+                    await JSRuntime.InvokeVoidAsync(identifier: "blazorHelpers.Split", elementArray);
+                }
+                else if (!searching)
+                {
+                    await JSRuntime.InvokeVoidAsync("blazorHelpers.Destroy");
+                    ElementReference[] elementArray = new ElementReference[3];
+                    elementArray[0] = tabPanel;
+                    elementArray[1] = fileTreePanel;
+                    elementArray[2] = sourceFilePanel;
+                    await JSRuntime.InvokeVoidAsync(identifier: "blazorHelpers.Split", elementArray);
+                }
+                searching = false;
+            }
+        }

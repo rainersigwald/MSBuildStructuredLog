@@ -1,0 +1,86 @@
+﻿@*Creates the layout of the File Tree Panel in the center*@
+
+@page "/FileTree"
+@using Microsoft.Build.Logging.StructuredLogger
+@using Radzen
+@using Radzen.Blazor
+
+<center>
+    @if (reading)
+    {
+<RadzenProgressBar Value="@_progressValue" 
+                   ShowValue="false" 
+                   Mode="ProgressBarMode.Determinate" 
+                   Style="margin-bottom: 20px" />
+        <h3>@waitText</h3>
+    }
+</center>
+
+<br />
+<br />
+@if (binLogSelected)
+{
+<div id="fileTree" style="width: 100%">
+    <RadzenTree Data="@fileTree" 
+                Expand="@((TreeExpandEventArgs args) => { TreeFormatting.OnExpandFiles(args); })"
+                Change="@OnChange">
+        <RadzenTreeLevel Template="@TreeFormatting.TreeDesignFiles"
+                         Text="@TreeFormatting.TextSelector"
+                         Selected="@((node) => {
+                                         bool temp = ((BaseNode)node).SourceDisplayed;
+                                         ((BaseNode)node).SourceDisplayed = false;
+                                         return temp; })"
+                         Expanded="@((node) => { return ((BaseNode)node).IsExpanded; })"
+                         HasChildren="@((node) => {
+                                            if (node is TreeNode)
+                                                return ((TreeNode)node).HasChildren;
+                                            else return false;
+                                        })" />
+    </RadzenTree>
+</div>
+} else
+{
+<center>
+    <Directions />
+</center>
+}
+
+@code {
+    [CascadingParameter]
+    public SplitPane ContainerSplit { get; set; }
+    public static bool binLogSelected = false;
+    public static ElementReference fileToRead;
+    public static bool reading;
+    public static string waitText;
+    public static double _progressValue = 0;
+    public static IEnumerable<BaseNode> fileTree = null;
+
+    /// <summary>
+    /// Fired when a user selects a tree node from the results
+    /// Opens the file and highlights the line where the info can be found
+    /// </summary>
+    /// <param name="args"> Handler that holds the event (.Value is the tree node selected) </param>
+    void OnChange(TreeEventArgs args)
+    {
+        object[] sourceFileInfo = SourceFileHelper.SourceFileText(ContainerSplit.sourceFileResolver, (BaseNode)args.Value);
+        ContainerSplit.sourceFileName = (string)sourceFileInfo[0];
+        ContainerSplit.sourceFileText = (string)sourceFileInfo[1];
+        ContainerSplit.sourceFileLineNumber = (int)sourceFileInfo[2];
+        ContainerSplit.sourceFileExtension = (string)sourceFileInfo[3];
+
+        if (!ContainerSplit.showSourceFilePanel)
+        {
+            ContainerSplit.showSourceFilePanel = true;
+            ContainerSplit.Render();
+        }
+        ContainerSplit.SourceFileRender();
+    }
+
+    /// <summary>
+    /// Allows other pages to re-render the instance
+    /// </summary>
+    public void Render()
+    {
+        this.StateHasChanged();
+    }
+}

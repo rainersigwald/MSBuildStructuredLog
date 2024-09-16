@@ -1,0 +1,308 @@
+﻿@using StructuredLogViewerWASM.Pages
+@using System.IO
+@using Microsoft.Build.Logging.StructuredLogger
+@inject Blazor.FileReader.IFileReaderService fileReaderService
+@inject NotificationService notificationService
+@inject HttpClient _httpClient;
+
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <ul class="nav flex-row">
+        <li style="width:calc(100%)">
+            <div class="flexNav">
+                <div class="heading">
+                    <h1>
+                        Structured Log Viewer
+                    </h1>
+
+                    <div class="buttonContainer">
+                        <BlazorInputFile.InputFile OnChange="ReadFile" aria-label="Choose File" style="width:7rem; top:0px" ElementId="myInput" id="myInput" class="filePicker">hidden</BlazorInputFile.InputFile>
+                        <button class="btn btn-primary" onclick="document.getElementById('myInput').click();">Open Binlog</button>
+                        <button @onclick=LoadSample class="btn btn-primary">Load Sample Log</button>
+                        <button @onclick=ClearFile class="btn btn-primary">Clear</button>
+                    </div>
+                </div>
+
+                <button @onclick="darkMode" class="btn btn-primary" style="margin-top:0.6rem;margin-right: .5rem;">@mode</button>
+
+            </div>
+
+        </li>
+                
+    </ul>
+    <RadzenNotification />
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    static ElementReference fileToRead;
+    ElementReference inputButton;
+    string mode = "Dark Mode";
+    [CascadingParameter]
+    public MainLayout mainLayout { get; set; }
+
+    /// <summary>
+    /// Changes the theme of the website to dark mode
+    /// </summary>
+    /// <returns>Task to update the application</returns>
+    public async System.Threading.Tasks.Task darkMode()
+    {
+        mainLayout.containerSplit.DarkMode();
+        if (mainLayout.containerSplit.darkMode)
+        {
+            mode = "Light Mode";
+        } else
+        {
+            mode = "Dark Mode";
+        }
+    }
+
+    /// <summary>
+    /// Fired when user selects the Clear button
+    /// Resets the app to original state before reading file
+    /// </summary>
+    /// <returns> Task to update app</returns>
+    public async System.Threading.Tasks.Task ClearFile()
+    {
+        await fileReaderService.CreateReference(fileToRead).ClearValue();
+        FileTree.binLogSelected = false;
+        FileTree.reading = false;
+        FileTree.waitText = "";
+        FileTree.fileTree = null;
+        mainLayout.containerSplit.projectFiles = null;
+        FindInFiles.findResults = null;
+        SearchViewer.searchResults = null;
+        mainLayout.containerSplit.searching = true;
+        if (mainLayout.containerSplit.showSourceFilePanel)
+        {
+            mainLayout.containerSplit.showSourceFilePanel = false;
+            mainLayout.containerSplit.searching = false;
+        }
+        mainLayout.containerSplit.Render();
+        FindInFiles.searchKeyword = null;
+        SearchViewer.SearchKeyword = null;
+    }
+
+    /// <summary>
+    /// Fired when a user selects a file to read that is not a .binlog
+    /// Shows an error message explaining that only .binlog files can be read
+    /// </summary>
+    /// <param name="message"> Message to be displayed to the user </param>
+    /// <returns></returns>
+    async System.Threading.Tasks.Task ShowError(string messageText)
+    {
+        var message = new NotificationMessage();
+        message.Severity = NotificationSeverity.Error;
+        message.Summary = messageText;
+        message.Duration = 4000;
+        notificationService.Notify(message);
+    }
+
+    public async System.Threading.Tasks.Task LoadSample()
+    {
+        try
+        {
+            await PrepareForLoad();
+
+            var request = new HttpRequestMessage(HttpMethod.Get, "sample.binlog");
+            request.SetBrowserResponseStreamingEnabled(true);
+
+            var response = await _httpClient.SendAsync(request);
+
+            var memoryStream = new MemoryStream();
+            var responseStream = await response.Content.ReadAsStreamAsync();
+            await responseStream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            await LoadBinlog(memoryStream);
+
+        }
+        catch (Exception ex)
+        {
+            await ShowError(ex.ToString());
+            await ClearFile();
+            return;
+        }
+    }
+
+    private async System.Threading.Tasks.Task PrepareForLoad()
+    {
+        //setting appropriate variables to display progress bar
+        FileTree.binLogSelected = false;
+
+        FileTree.reading = true;
+        FileTree.waitText = "Here we go...";
+        mainLayout.containerSplit.fileTree.Render();
+        FileTree.binLogSelected = true;
+    }
+
+    private async System.Threading.Tasks.Task LoadBinlog(MemoryStream memoryStream)
+    {
+        System.Diagnostics.Stopwatch timeSinceUpdate = System.Diagnostics.Stopwatch.StartNew();
+
+        //reading build and creating tree from the build
+        mainLayout.containerSplit.build = await BinaryLog.ReadBuild(memoryStream, progressFunc: async (current, total) =>
+        {
+            if (timeSinceUpdate.Elapsed.TotalSeconds > 0.1)
+            {
+                //waitText = current.ToString() + " / " + total.ToString();
+                //Console.WriteLine(waitText);
+                FileTree._progressValue = 100 * current / (double)total;
+                mainLayout.containerSplit.fileTree.Render();
+                await System.Threading.Tasks.Task.Delay(1);
+                timeSinceUpdate.Restart();
+            }
+        });
+        FileTree.waitText = "Trust me you're computer wants this to be over more than you do...";
+        BuildAnalyzer.AnalyzeBuild(mainLayout.containerSplit.build);
+        FileTree.fileTree = (IEnumerable<BaseNode>)mainLayout.containerSplit.build.Children;
+
+        //creating a search object to be used in the Search tab
+        SearchViewer.searcher = new StructuredLogViewer.Search(mainLayout.containerSplit.build, StructuredLogViewer.Search.DefaultMaxResults);
+        mainLayout.containerSplit.fileTree.Render();
+        FileTree.waitText = "Not a joke...We're actually still reading...";
+        mainLayout.containerSplit.fileTree.Render();
+
+        //creating file resolvers to read/look through archive/source files
+        mainLayout.containerSplit.sourceFileResolver = new StructuredLogViewer.SourceFileResolver(mainLayout.containerSplit.build.SourceFilesArchive);
+        mainLayout.containerSplit.archiveFileResolver = mainLayout.containerSplit.sourceFileResolver.ArchiveFile;
+
+        //populates the Files tab with the projectFiles tree
+        PopulateFilesTab();
+        mainLayout.containerSplit.fileTree.Render();
+        FileTree.reading = false;
+        FileTree.waitText = "";
+        mainLayout.containerSplit.fileTree.Render();
+    }
+
+    /// <summary>
+    /// Fired when user selects Read File button
+    /// Reads the file: produces file tree and File tab if .binlog otherwise shows error
+    /// </summary>
+    /// <returns> Task to update app</returns>
+    public async System.Threading.Tasks.Task ReadFile(IFileListEntry[] files)
+    {
+        try
+        {
+
+
+            //creating files list from the file selected
+            var file = files.FirstOrDefault();
+            if (file == null)
+            {
+                return;
+            }
+
+            //determining if file is of type .binlog (errors if not)
+            String[] split = file.Name.Split(".");
+            if (!String.Equals("binlog", split[split.Length - 1]))
+            {
+                await ShowError("Wrong File Type!");
+                await ClearFile();
+                return;
+            }
+
+            await PrepareForLoad();
+
+            //reading .binlog file using streams (must be put into memoryStream to properly read
+            FileTree.waitText = "Teaching you patience...";
+            mainLayout.containerSplit.fileTree.Render();
+            var memoryStream = new MemoryStream();
+            await file.Data.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            await LoadBinlog(memoryStream);
+
+        }
+        catch (Exception ex)
+        {
+            await ShowError(ex.ToString());
+            await ClearFile();
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Creates the project files tree in the Files tab
+    /// </summary>
+    public void PopulateFilesTab()
+    {
+        var root = new Folder();
+        StructuredLogViewer.ArchiveFileResolver archiveFile = mainLayout.containerSplit.archiveFileResolver;
+
+        foreach (var file in archiveFile.Files.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var parts = file.Key.Split('\\');
+            AddSourceFile(root, file.Key, parts, 0);
+        }
+
+        foreach (var subFolder in root.Children.OfType<Folder>())
+        {
+            CompressTree(subFolder);
+        }
+
+        mainLayout.containerSplit.projectFiles = (IEnumerable<BaseNode>)root.Children;
+    }
+
+    /// <summary>
+    /// Creates a tree structure such that if folders have same parent they are displayed under that same node
+    /// </summary>
+    /// <param name="parent"> parent folder to </param>
+    private void CompressTree(Folder parent)
+    {
+        if (parent.Children.Count == 1 && parent.Children[0] is Folder subfolder)
+        {
+            parent.Children.Clear();
+            var grandchildren = subfolder.Children.ToArray();
+            subfolder.Children.Clear();
+            foreach (var grandChild in grandchildren)
+            {
+                parent.Children.Add(grandChild);
+            }
+
+            parent.Name = Path.Combine(parent.Name, subfolder.Name);
+            CompressTree(parent);
+        }
+        else
+        {
+            foreach (var subFolder in parent.Children.OfType<Folder>
+                ())
+            {
+                CompressTree(subFolder);
+            }
+        }
+    }
+
+    /// <summary>
+    /// adds a sourcefile as a child to the parent node
+    /// </summary>
+    /// <param name="folder"> folder to add the child to </param>
+    /// <param name="filePath">path of the file the child is located at </param>
+    /// <param name="parts"> holds information about the child including the file name </param>
+    /// <param name="index"> locates where the file name can be found in the parts array</param>
+    private void AddSourceFile(Folder folder, string filePath, string[] parts, int index)
+    {
+        if (index == parts.Length - 1)
+        {
+            var file = new Microsoft.Build.Logging.StructuredLogger.SourceFile()
+            {
+                SourceFilePath = filePath,
+                Name = parts[index]
+            };
+            folder.AddChild(file);
+        }
+        else
+        {
+            var subfolder = folder.GetOrCreateNodeWithName<Folder>
+                (parts[index]);
+            subfolder.IsExpanded = true;
+            AddSourceFile(subfolder, filePath, parts, index + 1);
+        }
+    }
+
+    private string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

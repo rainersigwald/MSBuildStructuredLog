@@ -190,34 +190,21 @@ namespace Microsoft.Build.Logging.StructuredLogger
         public async System.Threading.Tasks.Task Replay(Stream stream, Func<long, long, System.Threading.Tasks.Task> progressFunc = null)
         {
             var gzipStream = new GZipStream(stream, CompressionMode.Decompress, leaveOpen: true);
-            var binaryReader = new BinaryReader(gzipStream);
+            var bufferedStream = new BufferedStream(gzipStream, 32768);
+            var binaryReader = new BinaryReader(bufferedStream);
 
-            int fileFormatVersion = binaryReader.ReadInt32();
+            using var reader = OpenReader(binaryReader);
 
-            // the log file is written using a newer version of file format
-            // that we don't know how to read
-            if (fileFormatVersion > BinaryLogger.FileFormatVersion)
-            {
-                var text = $"Unsupported log file format. Latest supported version is {BinaryLogger.FileFormatVersion}, the log file has version {fileFormatVersion}.";
-                throw new NotSupportedException(text);
-            }
-
-            // Use a producer-consumer queue so that IO can happen on one thread
-            // while processing can happen on another thread decoupled. The speed
-            // up is from 4.65 to 4.15 seconds.
-            //var queue = new BlockingCollection<BuildEventArgs>(boundedCapacity: 5000);
-            //var processingTask = System.Threading.Tasks.Task.Run(() =>
-            //{
-            //    foreach (var args in queue.GetConsumingEnumerable())
-            //    {
-            //        Dispatch(args);
-            //    }
-            //});
+            var queue = new List<BuildEventArgs>();
 
             int recordsRead = 0;
 
-            var reader = new BuildEventArgsReader(binaryReader, fileFormatVersion);
             reader.OnBlobRead += OnBlobRead;
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            var streamLength = stream.Length;
+
             while (true)
             {
                 BuildEventArgs instance = null;
@@ -234,18 +221,28 @@ namespace Microsoft.Build.Logging.StructuredLogger
                 recordsRead++;
                 if (instance == null)
                 {
-                    //queue.CompleteAdding();
                     break;
                 }
 
-                Dispatch(instance);
+                queue.Add(instance);
+            }
+
+            foreach (var args in queue)
+            {
+                Dispatch(args);
                 if (progressFunc != null)
                 {
                     await progressFunc(stream.Position, stream.Length);
                 }
             }
-
-            //processingTask.Wait();
+            if (reader.FileFormatVersion >= 10)
+            {
+                var strings = reader.GetStrings();
+                if (strings != null && strings.Any())
+                {
+                    OnStringDictionaryComplete?.Invoke(strings);
+                }
+            }
         }
 
         private BuildEventArgsReader OpenReader(BinaryReader binaryReader)

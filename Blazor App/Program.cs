@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Blazor.FileReader;
 using Radzen;
+using System.Diagnostics;
 
 namespace StructuredLogViewerWASM
 {

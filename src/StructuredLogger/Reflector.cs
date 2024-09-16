@@ -11,7 +11,7 @@ namespace Microsoft.Build.Logging.StructuredLogger
 {
     public class Reflector
     {
-#if NET8_0_OR_GREATER
+#if false
         [DynamicDependency(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicMethods, typeof(LazyFormattedBuildEventArgs))]
         static Reflector()
         {

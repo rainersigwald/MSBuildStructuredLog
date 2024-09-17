@@ -24,15 +24,16 @@ namespace StructuredLogViewerWASM
             if (node is AbstractDiagnostic diagNode)
             {
                 path = diagNode.ProjectFile;
+                sourceFileName = path;
+
                 if (diagNode.IsTextShortened)
                 {
                     sourceFileText = diagNode.Text;
-                    sourceFileName = diagNode.ShortenedText;
                 }
                 else
                 {
                     sourceFileText = fileResolver.GetSourceFileText(path).Text;
-                    sourceFileName = diagNode.Text;
+                    
                 }
                 sourceFileLineNumber = diagNode.LineNumber;
 
@@ -40,34 +41,34 @@ namespace StructuredLogViewerWASM
             else if (node is Project projectNode)
             {
                 path = projectNode.SourceFilePath;
-                sourceFileName = projectNode.Name;
+                sourceFileName = path;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
             }
             else if (node is Target targetNode)
             {
                 path = targetNode.SourceFilePath;
-                sourceFileName = targetNode.Name;
+                sourceFileName = path;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
                 sourceFileLineNumber = TargetLineNumber(fileResolver.GetSourceFileText(path), sourceFileName);
             }
             else if (node is Microsoft.Build.Logging.StructuredLogger.Task taskNode)
             {
                 path = taskNode.SourceFilePath;
-                sourceFileName = taskNode.Name;
+                sourceFileName = path;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
                 sourceFileLineNumber = TaskLineNumber(fileResolver.GetSourceFileText(path), taskNode.Parent, sourceFileName);
             }
-            else if (node is IHasSourceFile && ((IHasSourceFile)node).SourceFilePath != null)
+            else if (node is IHasSourceFile hasSourceFile && hasSourceFile.SourceFilePath != null)
             {
-                path = ((IHasSourceFile)node).SourceFilePath;
-                sourceFileName = ((IHasSourceFile)node).SourceFilePath;
+                path = hasSourceFile.SourceFilePath;
+                sourceFileName = path;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
             }
             else if (node is SourceFileLine && ((SourceFileLine)node).Parent is Microsoft.Build.Logging.StructuredLogger.SourceFile
-            && ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)node).Parent).SourceFilePath != null)
+                     && ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)node).Parent).SourceFilePath != null)
             {
                 path = ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)node).Parent).SourceFilePath;
-                sourceFileName = ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)node).Parent).Name;
+                sourceFileName = path;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
                 sourceFileLineNumber = ((SourceFileLine)node).LineNumber;
             }

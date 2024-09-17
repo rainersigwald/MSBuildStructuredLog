@@ -89,7 +89,7 @@ namespace StructuredLogViewerWASM
 
             string[] fileParts = path.Split(".");
             string fileExtension = fileParts[fileParts.Length - 1];
-            if (fileExtension.Equals("csproj") || fileExtension.Equals("metaproj") || fileExtension.Equals("targets"))
+            if (fileExtension.Equals("csproj") || fileExtension.Equals("metaproj") || fileExtension.Equals("targets") || fileExtension.Equals("props"))
             {
                 fileExtension = "xml";
             }

@@ -7,18 +7,18 @@
 @using BlazorMonaco
 @using BlazorMonaco.Editor
 
-    <div class="flexSource">
-        <div class="flex-container">
-            <h2 style="margin:auto">@ContainerSplit.sourceFileName</h2>
-            <button @onclick=Exit class="btn btn-secondary" id="closeButton">Close</button>
-        </div>
-
-        <StandaloneCodeEditor @ref="_editor"
-                      CssClass="code"
-                      Id="monaco-editor"
-                      ConstructionOptions="EditorConstructionOptions"
-                      OnDidInit="@((editor) => EditorOnDidInit((StandaloneCodeEditor )editor))" />
+<div class="flexSource">
+    <div class="flex-container">
+        <h2 style="margin:auto">@ContainerSplit.sourceFileName</h2>
+        <button @onclick=Exit class="btn btn-secondary" id="closeButton">Close</button>
     </div>
+
+    <StandaloneCodeEditor @ref="_editor"
+                          CssClass="code"
+                          Id="monaco-editor"
+                          ConstructionOptions="EditorConstructionOptions"
+                          OnDidInit="@((editor) => EditorOnDidInit((StandaloneCodeEditor)editor))" />
+</div>
 @code {
     [CascadingParameter]
     public SplitPane ContainerSplit { get; set; }
@@ -35,24 +35,24 @@
         if (ContainerSplit.darkMode)
         {
             theme = "vs-dark";
-        } else
+        }
+        else
         {
             theme = "vs";
         }
         return new StandaloneEditorConstructionOptions()
-        {
-            ReadOnly = true,
-            Value = ContainerSplit.sourceFileText,
-            AutomaticLayout = true,
-            ScrollBeyondLastLine = false,
-            Language = ContainerSplit.sourceFileExtension,
-            Theme = theme,
-            Scrollbar = new EditorScrollbarOptions
             {
-                Vertical = "visible",
-                Horizontal = "visible"
-            }
-        };
+                ReadOnly = true,
+                Value = ContainerSplit.sourceFileText,
+                AutomaticLayout = true,
+                ScrollBeyondLastLine = false,
+                Theme = theme,
+                Scrollbar = new EditorScrollbarOptions
+                {
+                    Vertical = "visible",
+                    Horizontal = "visible"
+                }
+            };
 
     }
 
@@ -93,20 +93,24 @@
     /// <returns> task to update the app </returns>
     private async System.Threading.Tasks.Task EditorOnDidInit(StandaloneCodeEditor editor)
     {
+        var model = await editor.GetModel();
+        await BlazorMonaco.Editor.Global.SetModelLanguage(model, ContainerSplit.sourceFileExtension);
+
         if (ContainerSplit.sourceFileLineNumber != -1)
         {
-            var newDecorations = new ModelDeltaDecoration[]
-            {
-            new ModelDeltaDecoration
-            {
-                Range = new BlazorMonaco.Range(ContainerSplit.sourceFileLineNumber,1,ContainerSplit.sourceFileLineNumber,1),
-                Options = new ModelDecorationOptions
+            ModelDeltaDecoration[] newDecorations =
+            [
+                new ModelDeltaDecoration
                 {
-                    IsWholeLine = true,
-                    ClassName = "decorationContentClass",
+                    Range = new BlazorMonaco.Range(ContainerSplit.sourceFileLineNumber,1,ContainerSplit.sourceFileLineNumber,1),
+                    Options = new ModelDecorationOptions
+                    {
+                        IsWholeLine = true,
+                        ClassName = "decorationContentClass",
+                    }
                 }
-            }
-                };
+            ];
+            
             await _editor.RevealLineInCenter(ContainerSplit.sourceFileLineNumber, ScrollType.Smooth);
             await _editor.DeltaDecorations(null, newDecorations);
             await _editor.RevealLineInCenter(ContainerSplit.sourceFileLineNumber, ScrollType.Smooth);

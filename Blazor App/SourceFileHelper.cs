@@ -13,77 +13,76 @@ namespace StructuredLogViewerWASM
         /// Determines the SourceFile (text, name, line number) from the tree node
         /// </summary>
         /// <param name="fileResolver"> Either the Source or Archive File Resolver to read file from </param>
-        /// <param name="bn">BaseNode to be reading file from</param>
-        public static object[] SourceFileText(ISourceFileResolver fileResolver, BaseNode bn)
+        /// <param name="node">BaseNode to be reading file from</param>
+        public static object[] SourceFileText(ISourceFileResolver fileResolver, BaseNode node)
         {
             string path = "";
             string sourceFileText = null;
             string sourceFileName = "";
             int sourceFileLineNumber = -1;
 
-            if (bn is AbstractDiagnostic)
+            if (node is AbstractDiagnostic diagNode)
             {
-                AbstractDiagnostic ad = (AbstractDiagnostic)bn;
-                path = ad.ProjectFile;
-                if (ad.IsTextShortened)
+                path = diagNode.ProjectFile;
+                if (diagNode.IsTextShortened)
                 {
-                    sourceFileText = ad.Text;
-                    sourceFileName = ad.ShortenedText;
+                    sourceFileText = diagNode.Text;
+                    sourceFileName = diagNode.ShortenedText;
                 }
                 else
                 {
                     sourceFileText = fileResolver.GetSourceFileText(path).Text;
-                    sourceFileName = ad.Text;
+                    sourceFileName = diagNode.Text;
                 }
-                sourceFileLineNumber = ad.LineNumber;
+                sourceFileLineNumber = diagNode.LineNumber;
 
             }
-            else if (bn is Project)
+            else if (node is Project projectNode)
             {
-                path = ((Project)bn).SourceFilePath;
-                sourceFileName = ((Project)bn).Name;
+                path = projectNode.SourceFilePath;
+                sourceFileName = projectNode.Name;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
             }
-            else if (bn is Target)
+            else if (node is Target targetNode)
             {
-                path = ((Target)bn).SourceFilePath;
-                sourceFileName = ((Target)bn).Name;
+                path = targetNode.SourceFilePath;
+                sourceFileName = targetNode.Name;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
                 sourceFileLineNumber = TargetLineNumber(fileResolver.GetSourceFileText(path), sourceFileName);
             }
-            else if (bn is Microsoft.Build.Logging.StructuredLogger.Task)
+            else if (node is Microsoft.Build.Logging.StructuredLogger.Task taskNode)
             {
-                path = ((Microsoft.Build.Logging.StructuredLogger.Task)bn).SourceFilePath;
-                sourceFileName = ((Microsoft.Build.Logging.StructuredLogger.Task)bn).Name;
+                path = taskNode.SourceFilePath;
+                sourceFileName = taskNode.Name;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
-                sourceFileLineNumber = TaskLineNumber(fileResolver.GetSourceFileText(path), ((Microsoft.Build.Logging.StructuredLogger.Task)bn).Parent, sourceFileName);
+                sourceFileLineNumber = TaskLineNumber(fileResolver.GetSourceFileText(path), taskNode.Parent, sourceFileName);
             }
-            else if (bn is IHasSourceFile && ((IHasSourceFile)bn).SourceFilePath != null)
+            else if (node is IHasSourceFile && ((IHasSourceFile)node).SourceFilePath != null)
             {
-                path = ((IHasSourceFile)bn).SourceFilePath;
-                sourceFileName = ((IHasSourceFile)bn).SourceFilePath;
+                path = ((IHasSourceFile)node).SourceFilePath;
+                sourceFileName = ((IHasSourceFile)node).SourceFilePath;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
             }
-            else if (bn is SourceFileLine && ((SourceFileLine)bn).Parent is Microsoft.Build.Logging.StructuredLogger.SourceFile
-            && ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)bn).Parent).SourceFilePath != null)
+            else if (node is SourceFileLine && ((SourceFileLine)node).Parent is Microsoft.Build.Logging.StructuredLogger.SourceFile
+            && ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)node).Parent).SourceFilePath != null)
             {
-                path = ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)bn).Parent).SourceFilePath;
-                sourceFileName = ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)bn).Parent).Name;
+                path = ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)node).Parent).SourceFilePath;
+                sourceFileName = ((Microsoft.Build.Logging.StructuredLogger.SourceFile)((SourceFileLine)node).Parent).Name;
                 sourceFileText = fileResolver.GetSourceFileText(path).Text;
-                sourceFileLineNumber = ((SourceFileLine)bn).LineNumber;
+                sourceFileLineNumber = ((SourceFileLine)node).LineNumber;
             }
-            else if (bn is NameValueNode && ((NameValueNode)bn).IsValueShortened)
+            else if (node is NameValueNode nameValueNode && nameValueNode.IsValueShortened)
             {
-                sourceFileText = ((NameValueNode)bn).Value;
-                sourceFileName = ((NameValueNode)bn).Name;
+                sourceFileText = nameValueNode.Value;
+                sourceFileName = nameValueNode.Name;
             }
-            else if (bn is TextNode && ((TextNode)bn).IsTextShortened)
+            else if (node is TextNode textNode && textNode.IsTextShortened)
             {
-                sourceFileText = ((TextNode)bn).Text;
-                sourceFileName = "<sourceFileName = ((TextNode)bn).Name>";
+                sourceFileText = textNode.Text;
+                sourceFileName = textNode.ShortenedText;
             }
 
-            if (sourceFileText == null)
+            if (sourceFileText is null)
             {
                 sourceFileText = "No file to display";
             }
